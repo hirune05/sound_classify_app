@@ -1,0 +1,6 @@
+0 dishes
+1 electronic_sound
+2 fan_noize
+3 keybord
+4 speaking_voice
+5 background_noise

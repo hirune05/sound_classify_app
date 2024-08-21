@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "758692455460",
+    "project_id": "cocomakers-sound-classify-app",
+    "storage_bucket": "cocomakers-sound-classify-app.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:758692455460:android:fd46cec362130572b2a4b1",
+        "android_client_info": {
+          "package_name": "com.example.sound_classify_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA7RWt0Bkbc6MRStludNEofSzIp4kZQ1HQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
