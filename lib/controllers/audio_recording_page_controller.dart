@@ -155,7 +155,8 @@ class AudioRecordingController extends StateNotifier<AudioRecordingState> {
     try {
       String fileName = state.fileName;
       FirebaseStorage storage = FirebaseStorage.instance;
-      Reference ref = storage.ref().child('audio_files/$fileName');
+      Reference ref =
+          storage.ref().child('edited_audio_files/edited_$fileName');
 
       final Directory systemTempDir = Directory.systemTemp;
       final File tempFile = File('${systemTempDir.path}/record.m4a');
