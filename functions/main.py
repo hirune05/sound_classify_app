@@ -89,17 +89,6 @@ def process_audio(event: storage_fn.CloudEvent[storage_fn.StorageObjectData]):
     output_filename = f"edited_{file_path.stem}.wav"
     output_path = f"/tmp/{output_filename}"
     sf.write(output_path, y_amplified, sr)
-
-    # Convert wav to m4a
-    # input_blob = bucket.blob(str(mp3_path))
-    # input_path = f"/tmp/{file_path.name}"
-    # input_blob.download_to_filename(input_path)
-    # print(f"input_path: {input_path}")
-    
-    # path = input_path  # 例：tmp/久江ホ.m4a
-    # print(f"Converting {path} to mp3")
-    # to = "mp3"
-    # s = ffmpeg.input(path)
     
     # wav形式の音声ファイルをm4a形式に変換
     path = output_path  # 例：tmp/久江ホ.m4a
