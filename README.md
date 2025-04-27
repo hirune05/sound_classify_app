@@ -1,16 +1,27 @@
-# sound_classify_app
+## Sound_Classify_app(Soundfit)
+聴覚過敏の人が感じる音の世界を疑似体験できるアプリです。具体的には、
+・聴覚過敏の人が感じる、”音によるストレス”をARで可視化
+・聴覚過敏の人が苦手な音を大きくする
+２つの機能により、聴覚過敏の世界を擬似的に体感できるようにしました。
+このアプリが、聴覚過敏の社会認知度・理解の向上に貢献し、聴覚過敏の人にとって過ごしやすいバリアフリー社会が近い将来に実現することを願っています。
 
-A new Flutter project.
-
-## Getting Started
-
-This project is a starting point for a Flutter application.
-
-A few resources to get you started if this is your first Flutter project:
-
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## ビルド方法
+direnvとfvmを使用しています。sound_classify_appディレクトリで
+```shell
+direnv allow
+```
+してください。
+```shell
+flutter --version
+```
+で、バージョンが`3.19.0`であることを確認してください。
+`3.19.0`でない場合は
+```shell
+fvm use 3.19.0
+```
+を実行してください。
+インストールされていない場合は、
+```shell
+fvm install 3.19.0
+```
+で、インストールしましょう。
