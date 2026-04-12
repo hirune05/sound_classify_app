@@ -28,3 +28,9 @@ fvm use 3.41.1
 fvm install 3.41.1
 ```
 で、インストールしましょう。
+
+## 実行方法
+以下のコマンドで実機にてビルドしてください。
+```shell
+flutter run -d <device-id>
+```
