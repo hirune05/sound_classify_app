@@ -26,7 +26,7 @@ def process_audio(event: storage_fn.CloudEvent[storage_fn.StorageObjectData]):
     print(f"content_type: {content_type}")
     
     
-    if file_path.name.startswith("edited_audio_files"): # すでに編集済みのファイルはスキップ(無限ループの防止)
+    if str(file_path).startswith("edited_audio_files/"): # すでに編集済みのファイルはスキップ(無限ループの防止)
         print("Already edited.")
         return
     
@@ -35,12 +35,15 @@ def process_audio(event: storage_fn.CloudEvent[storage_fn.StorageObjectData]):
         return
 
     doc_ref = db.collection("audio_processing").document(file_path.name)
-    doc_ref.set({
-        "status": "processing",
-        "originalPath": str(file_path),
-        "editedPath": f"edited_audio_files/edited_{file_path.name}",
-        "updatedAt": firestore.SERVER_TIMESTAMP,
-    }, merge=True)
+    try:
+        doc_ref.set({
+            "status": "processing",
+            "originalPath": str(file_path),
+            "editedPath": f"edited_audio_files/edited_{file_path.name}",
+            "updatedAt": firestore.SERVER_TIMESTAMP,
+        }, merge=True)
+    except Exception as e:
+        print(f"Error writing Firestore (processing): {e}")
 
 
     bucket = storage.bucket(bucket_name)
@@ -65,11 +68,14 @@ def process_audio(event: storage_fn.CloudEvent[storage_fn.StorageObjectData]):
         ffmpeg.run(s)
     except ffmpeg.Error as e:
         print(f"Error converting m4a to mp3: {e}")
-        doc_ref.set({
-            "status": "failed",
-            "error": "m4a_to_mp3_failed",
-            "updatedAt": firestore.SERVER_TIMESTAMP,
-        }, merge=True)
+        try:
+            doc_ref.set({
+                "status": "failed",
+                "error": "m4a_to_mp3_failed",
+                "updatedAt": firestore.SERVER_TIMESTAMP,
+            }, merge=True)
+        except Exception as e2:
+            print(f"Error writing Firestore (failed m4a_to_mp3): {e2}")
         return
 
     print(f"mp3file saved to: {mp3_path}")
@@ -79,11 +85,14 @@ def process_audio(event: storage_fn.CloudEvent[storage_fn.StorageObjectData]):
         y, sr = librosa.load(mp3_path, sr=48000)
     except Exception as e:
         print(f"Error loading mp3 file with librosa: {e}")
-        doc_ref.set({
-            "status": "failed",
-            "error": "librosa_load_failed",
-            "updatedAt": firestore.SERVER_TIMESTAMP,
-        }, merge=True)
+        try:
+            doc_ref.set({
+                "status": "failed",
+                "error": "librosa_load_failed",
+                "updatedAt": firestore.SERVER_TIMESTAMP,
+            }, merge=True)
+        except Exception as e2:
+            print(f"Error writing Firestore (failed librosa_load): {e2}")
         return
     
     D = librosa.stft(y)
@@ -125,11 +134,14 @@ def process_audio(event: storage_fn.CloudEvent[storage_fn.StorageObjectData]):
         ffmpeg.run(s)
     except ffmpeg.Error as e:
         print(f"Error converting wav to m4a: {e}")
-        doc_ref.set({
-            "status": "failed",
-            "error": "wav_to_m4a_failed",
-            "updatedAt": firestore.SERVER_TIMESTAMP,
-        }, merge=True)
+        try:
+            doc_ref.set({
+                "status": "failed",
+                "error": "wav_to_m4a_failed",
+                "updatedAt": firestore.SERVER_TIMESTAMP,
+            }, merge=True)
+        except Exception as e2:
+            print(f"Error writing Firestore (failed wav_to_m4a): {e2}")
         return
     print(f"wavfile saved to: {output_m4a_path}") # 例：tmp/久江ホ.m4a
     output_m4a_filename = os.path.basename(output_m4a_path)
@@ -146,7 +158,10 @@ def process_audio(event: storage_fn.CloudEvent[storage_fn.StorageObjectData]):
     os.remove(output_m4a_path)
 
     print(f"Processed file uploaded to edited_audio_files/{output_m4a_filename}")
-    doc_ref.set({
-        "status": "completed",
-        "updatedAt": firestore.SERVER_TIMESTAMP,
-    }, merge=True)
+    try:
+        doc_ref.set({
+            "status": "completed",
+            "updatedAt": firestore.SERVER_TIMESTAMP,
+        }, merge=True)
+    except Exception as e:
+        print(f"Error writing Firestore (completed): {e}")
