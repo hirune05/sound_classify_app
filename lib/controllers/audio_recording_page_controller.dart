@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
-import 'package:audioplayers/audioplayers.dart';
+import 'package:audioplayers/audioplayers.dart' as ap;
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
 import 'package:record/record.dart';
@@ -32,12 +33,12 @@ class AudioRecordingController extends StateNotifier<AudioRecordingState> {
   }
 
   late Record audioRecord;
-  late AudioPlayer audioPlayer;
+  late ap.AudioPlayer audioPlayer;
 
   Timer? _timer;
 
   void _init() {
-    audioPlayer = AudioPlayer();
+    audioPlayer = ap.AudioPlayer();
     audioRecord = Record();
     state = state.copyWith(
       recording: false,
@@ -113,11 +114,11 @@ class AudioRecordingController extends StateNotifier<AudioRecordingState> {
         print('File permissions: ${permissions.modeString()}');
 
         // AudioPlayerを再初期化
-        audioPlayer = AudioPlayer();
+        audioPlayer = ap.AudioPlayer();
 
         // ソースURLが有効か確認
         final urlSource =
-            DeviceFileSource(state.audioPath); // UrlSourceをDeviceFileSourceに変更
+            ap.DeviceFileSource(state.audioPath); // UrlSourceをDeviceFileSourceに変更
         await audioPlayer.play(urlSource);
       } else {
         print('Error: Audio file does not exist at ${state.audioPath}');
@@ -146,14 +147,54 @@ class AudioRecordingController extends StateNotifier<AudioRecordingState> {
       await uploadTask;
       print('File uploaded to Firebase Storage');
       state = state.copyWith(isRecordUploaded: true);
+
+      await FirebaseFirestore.instance
+          .collection('audio_processing')
+          .doc(fileName)
+          .set({
+        'status': 'uploaded',
+        'originalPath': 'audio_files/$fileName',
+        'editedPath': 'edited_audio_files/edited_$fileName',
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
     } catch (e) {
       print('Error uploading file: $e');
+    }
+  }
+
+  Future<void> _waitForProcessingComplete(String fileName) async {
+    const timeout = Duration(seconds: 90);
+    final docRef =
+        FirebaseFirestore.instance.collection('audio_processing').doc(fileName);
+    final completer = Completer<void>();
+    late final StreamSubscription<DocumentSnapshot<Map<String, dynamic>>> sub;
+    sub = docRef.snapshots().listen((snapshot) {
+      if (!snapshot.exists) {
+        return;
+      }
+      final data = snapshot.data();
+      final status = data?['status'];
+      if (status == 'completed') {
+        completer.complete();
+      } else if (status == 'failed') {
+        completer.completeError(Exception('processing failed'));
+      }
+    });
+    try {
+      await completer.future.timeout(timeout);
+    } finally {
+      await sub.cancel();
     }
   }
 
   Future<void> downloadAndPlayAudioFile() async {
     try {
       String fileName = state.fileName;
+      if (fileName.isEmpty) {
+        print('Error: fileName is empty, upload first.');
+        return;
+      }
+      await _waitForProcessingComplete(fileName);
       FirebaseStorage storage = FirebaseStorage.instance;
       Reference ref =
           storage.ref().child('edited_audio_files/edited_$fileName');
@@ -167,7 +208,7 @@ class AudioRecordingController extends StateNotifier<AudioRecordingState> {
       print('Processed file downloaded from Firebase Storage');
 
       // ダウンロードしたファイルを再生
-      Source urlSource = DeviceFileSource(tempFile.path);
+      final urlSource = ap.DeviceFileSource(tempFile.path);
       await audioPlayer.play(urlSource);
 
       // 再生後にファイルを削除

@@ -1,5 +1,5 @@
 from firebase_functions import firestore_fn, https_fn, storage_fn, options
-from firebase_admin import initialize_app, storage, firestore
+from firebase_admin import initialize_app, storage, firestore, credentials, get_app
 import os
 import pathlib
 import librosa
@@ -7,15 +7,17 @@ import numpy as np
 import soundfile as sf
 import ffmpeg
 import google.cloud.firestore
-from firebase_admin import initialize_app, storage, credentials
-
-cred = credentials.ApplicationDefault()
-initialize_app(cred, {
-    'storageBucket': 'cocomakers-sound-classify-app.appspot.com'  # バケット名を指定します
-})
 
 @storage_fn.on_object_finalized(bucket="cocomakers-sound-classify-app.appspot.com", region='asia-northeast1',  memory=options.MemoryOption.GB_1) # timeout_sec=300
 def process_audio(event: storage_fn.CloudEvent[storage_fn.StorageObjectData]):
+    try:
+        get_app()
+    except ValueError:
+        cred = credentials.ApplicationDefault()
+        initialize_app(cred, {
+            'storageBucket': 'cocomakers-sound-classify-app.appspot.com'
+        })
+    db = firestore.client()
     bucket_name = event.data.bucket
     file_path = pathlib.PurePath(event.data.name)
     content_type = event.data.content_type
@@ -31,6 +33,14 @@ def process_audio(event: storage_fn.CloudEvent[storage_fn.StorageObjectData]):
     if not content_type or not content_type.startswith("audio/x-m4a"):
         print(f"Unsupported content type: {content_type}")
         return
+
+    doc_ref = db.collection("audio_processing").document(file_path.name)
+    doc_ref.set({
+        "status": "processing",
+        "originalPath": str(file_path),
+        "editedPath": f"edited_audio_files/edited_{file_path.name}",
+        "updatedAt": firestore.SERVER_TIMESTAMP,
+    }, merge=True)
 
 
     bucket = storage.bucket(bucket_name)
@@ -55,6 +65,11 @@ def process_audio(event: storage_fn.CloudEvent[storage_fn.StorageObjectData]):
         ffmpeg.run(s)
     except ffmpeg.Error as e:
         print(f"Error converting m4a to mp3: {e}")
+        doc_ref.set({
+            "status": "failed",
+            "error": "m4a_to_mp3_failed",
+            "updatedAt": firestore.SERVER_TIMESTAMP,
+        }, merge=True)
         return
 
     print(f"mp3file saved to: {mp3_path}")
@@ -64,6 +79,11 @@ def process_audio(event: storage_fn.CloudEvent[storage_fn.StorageObjectData]):
         y, sr = librosa.load(mp3_path, sr=48000)
     except Exception as e:
         print(f"Error loading mp3 file with librosa: {e}")
+        doc_ref.set({
+            "status": "failed",
+            "error": "librosa_load_failed",
+            "updatedAt": firestore.SERVER_TIMESTAMP,
+        }, merge=True)
         return
     
     D = librosa.stft(y)
@@ -105,6 +125,11 @@ def process_audio(event: storage_fn.CloudEvent[storage_fn.StorageObjectData]):
         ffmpeg.run(s)
     except ffmpeg.Error as e:
         print(f"Error converting wav to m4a: {e}")
+        doc_ref.set({
+            "status": "failed",
+            "error": "wav_to_m4a_failed",
+            "updatedAt": firestore.SERVER_TIMESTAMP,
+        }, merge=True)
         return
     print(f"wavfile saved to: {output_m4a_path}") # 例：tmp/久江ホ.m4a
     output_m4a_filename = os.path.basename(output_m4a_path)
@@ -121,3 +146,7 @@ def process_audio(event: storage_fn.CloudEvent[storage_fn.StorageObjectData]):
     os.remove(output_m4a_path)
 
     print(f"Processed file uploaded to edited_audio_files/{output_m4a_filename}")
+    doc_ref.set({
+        "status": "completed",
+        "updatedAt": firestore.SERVER_TIMESTAMP,
+    }, merge=True)
