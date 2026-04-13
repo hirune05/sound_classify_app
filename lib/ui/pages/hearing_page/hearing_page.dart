@@ -18,6 +18,8 @@ class HearingPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     bool isRecording = ref.watch(audioRecordingProvider).recording;
+    final isProcessing = ref.watch(audioRecordingProvider).isProcessing;
+    final isProcessed = ref.watch(audioRecordingProvider).isProcessed;
 
     return Scaffold(
       appBar: AppBar(
@@ -79,8 +81,19 @@ class HearingPage extends ConsumerWidget {
                     ],
                   )
                 : Container(),
-            (!isRecording &&
-                    ref.watch(audioRecordingProvider).isRecordUploaded == true)
+            if (!isRecording && isProcessing)
+              Column(
+                children: const [
+                  SizedBox(height: 16),
+                  CircularProgressIndicator(),
+                  SizedBox(height: 8),
+                  Text(
+                    '変換中…',
+                    style: TextStyle(color: AppColors.secondaryText),
+                  ),
+                ],
+              ),
+            (!isRecording && isProcessed)
                 ? Column(
                     children: [
                       const Icon(

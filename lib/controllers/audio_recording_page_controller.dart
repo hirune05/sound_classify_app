@@ -17,6 +17,8 @@ class AudioRecordingState with _$AudioRecordingState {
     @Default(false) bool recording,
     @Default(false) bool isRecordingCompleted,
     @Default(false) bool isRecordUploaded,
+    @Default(false) bool isProcessing,
+    @Default(false) bool isProcessed,
     @Default('') String audioPath,
     @Default('') String fileName,
   }) = _AudioRecordingState;
@@ -36,6 +38,7 @@ class AudioRecordingController extends StateNotifier<AudioRecordingState> {
   late ap.AudioPlayer audioPlayer;
 
   Timer? _timer;
+  StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _processingSub;
 
   void _init() {
     audioPlayer = ap.AudioPlayer();
@@ -43,6 +46,8 @@ class AudioRecordingController extends StateNotifier<AudioRecordingState> {
     state = state.copyWith(
       recording: false,
       isRecordingCompleted: false,
+      isProcessing: false,
+      isProcessed: false,
     );
   }
 
@@ -50,6 +55,8 @@ class AudioRecordingController extends StateNotifier<AudioRecordingState> {
     state = state.copyWith(
       recording: false,
       isRecordingCompleted: false,
+      isProcessing: false,
+      isProcessed: false,
     );
   }
 
@@ -97,6 +104,8 @@ class AudioRecordingController extends StateNotifier<AudioRecordingState> {
           isRecordingCompleted: true,
           audioPath: newPath,
           isRecordUploaded: false,
+          isProcessing: false,
+          isProcessed: false,
         );
       }
     } catch (e) {
@@ -146,7 +155,11 @@ class AudioRecordingController extends StateNotifier<AudioRecordingState> {
       UploadTask uploadTask = ref.putFile(file);
       await uploadTask;
       print('File uploaded to Firebase Storage');
-      state = state.copyWith(isRecordUploaded: true);
+      state = state.copyWith(
+        isRecordUploaded: true,
+        isProcessing: true,
+        isProcessed: false,
+      );
 
       await FirebaseFirestore.instance
           .collection('audio_processing')
@@ -157,9 +170,33 @@ class AudioRecordingController extends StateNotifier<AudioRecordingState> {
         'editedPath': 'edited_audio_files/edited_$fileName',
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
+
+      await _startProcessingWatcher(fileName);
     } catch (e) {
       print('Error uploading file: $e');
     }
+  }
+
+  Future<void> _startProcessingWatcher(String fileName) async {
+    await _processingSub?.cancel();
+    final docRef =
+        FirebaseFirestore.instance.collection('audio_processing').doc(fileName);
+    _processingSub = docRef.snapshots().listen((snapshot) {
+      if (!snapshot.exists) {
+        return;
+      }
+      final data = snapshot.data();
+      final status = data?['status'];
+      if (status == 'completed') {
+        state = state.copyWith(isProcessing: false, isProcessed: true);
+        _processingSub?.cancel();
+      } else if (status == 'failed') {
+        state = state.copyWith(isProcessing: false, isProcessed: false);
+        _processingSub?.cancel();
+      } else {
+        state = state.copyWith(isProcessing: true);
+      }
+    });
   }
 
   Future<void> _waitForProcessingComplete(String fileName) async {
