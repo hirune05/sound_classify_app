@@ -19,6 +19,7 @@ class AudioRecordingState with _$AudioRecordingState {
     @Default(false) bool isRecordUploaded,
     @Default(false) bool isProcessing,
     @Default(false) bool isProcessed,
+    @Default(false) bool isProcessingFailed,
     @Default('') String audioPath,
     @Default('') String fileName,
   }) = _AudioRecordingState;
@@ -39,6 +40,7 @@ class AudioRecordingController extends StateNotifier<AudioRecordingState> {
 
   Timer? _timer;
   StreamSubscription<DocumentSnapshot<Map<String, dynamic>>>? _processingSub;
+  Timer? _processingTimeout;
 
   void _init() {
     audioPlayer = ap.AudioPlayer();
@@ -48,6 +50,7 @@ class AudioRecordingController extends StateNotifier<AudioRecordingState> {
       isRecordingCompleted: false,
       isProcessing: false,
       isProcessed: false,
+      isProcessingFailed: false,
     );
   }
 
@@ -57,6 +60,7 @@ class AudioRecordingController extends StateNotifier<AudioRecordingState> {
       isRecordingCompleted: false,
       isProcessing: false,
       isProcessed: false,
+      isProcessingFailed: false,
     );
   }
 
@@ -106,6 +110,7 @@ class AudioRecordingController extends StateNotifier<AudioRecordingState> {
           isRecordUploaded: false,
           isProcessing: false,
           isProcessed: false,
+          isProcessingFailed: false,
         );
       }
     } catch (e) {
@@ -139,6 +144,11 @@ class AudioRecordingController extends StateNotifier<AudioRecordingState> {
 
   Future<void> uploadAudioFile() async {
     try {
+      state = state.copyWith(
+        isProcessing: true,
+        isProcessed: false,
+        isProcessingFailed: false,
+      );
       // UUIDを生成
       var uuid = Uuid();
       String uniqueFileName = uuid.v4();
@@ -159,6 +169,7 @@ class AudioRecordingController extends StateNotifier<AudioRecordingState> {
         isRecordUploaded: true,
         isProcessing: true,
         isProcessed: false,
+        isProcessingFailed: false,
       );
 
       await FirebaseFirestore.instance
@@ -174,13 +185,27 @@ class AudioRecordingController extends StateNotifier<AudioRecordingState> {
       await _startProcessingWatcher(fileName);
     } catch (e) {
       print('Error uploading file: $e');
+      state = state.copyWith(
+        isProcessing: false,
+        isProcessed: false,
+        isProcessingFailed: true,
+      );
     }
   }
 
   Future<void> _startProcessingWatcher(String fileName) async {
     await _processingSub?.cancel();
+    _processingTimeout?.cancel();
     final docRef =
         FirebaseFirestore.instance.collection('audio_processing').doc(fileName);
+    _processingTimeout = Timer(const Duration(seconds: 90), () {
+      state = state.copyWith(
+        isProcessing: false,
+        isProcessed: false,
+        isProcessingFailed: true,
+      );
+      _processingSub?.cancel();
+    });
     _processingSub = docRef.snapshots().listen((snapshot) {
       if (!snapshot.exists) {
         return;
@@ -188,13 +213,23 @@ class AudioRecordingController extends StateNotifier<AudioRecordingState> {
       final data = snapshot.data();
       final status = data?['status'];
       if (status == 'completed') {
-        state = state.copyWith(isProcessing: false, isProcessed: true);
+        state = state.copyWith(
+          isProcessing: false,
+          isProcessed: true,
+          isProcessingFailed: false,
+        );
+        _processingTimeout?.cancel();
         _processingSub?.cancel();
       } else if (status == 'failed') {
-        state = state.copyWith(isProcessing: false, isProcessed: false);
+        state = state.copyWith(
+          isProcessing: false,
+          isProcessed: false,
+          isProcessingFailed: true,
+        );
+        _processingTimeout?.cancel();
         _processingSub?.cancel();
       } else {
-        state = state.copyWith(isProcessing: true);
+        state = state.copyWith(isProcessing: true, isProcessingFailed: false);
       }
     });
   }

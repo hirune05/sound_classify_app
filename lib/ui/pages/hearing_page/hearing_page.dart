@@ -20,6 +20,8 @@ class HearingPage extends ConsumerWidget {
     bool isRecording = ref.watch(audioRecordingProvider).recording;
     final isProcessing = ref.watch(audioRecordingProvider).isProcessing;
     final isProcessed = ref.watch(audioRecordingProvider).isProcessed;
+    final isProcessingFailed =
+        ref.watch(audioRecordingProvider).isProcessingFailed;
 
     return Scaffold(
       appBar: AppBar(
@@ -58,7 +60,10 @@ class HearingPage extends ConsumerWidget {
                 child: const Icon(Icons.volume_up, size: 40),
                 padding: const EdgeInsets.only(top: 12),
               ),
-            (!isRecording && ref.watch(audioRecordingProvider).audioPath != '')
+            (!isRecording &&
+                    ref.watch(audioRecordingProvider).audioPath != '' &&
+                    !isProcessing &&
+                    !isProcessed)
                 ? Column(
                     children: [
                       const Icon(
@@ -88,10 +93,18 @@ class HearingPage extends ConsumerWidget {
                   CircularProgressIndicator(),
                   SizedBox(height: 8),
                   Text(
-                    '変換中…',
+                    '変換中…（1分ほどかかります）',
                     style: TextStyle(color: AppColors.secondaryText),
                   ),
                 ],
+              ),
+            if (!isRecording && isProcessingFailed)
+              const Padding(
+                padding: EdgeInsets.only(top: 12),
+                child: Text(
+                  '変換に失敗しました。もう一度お試しください。',
+                  style: TextStyle(color: Colors.redAccent),
+                ),
               ),
             (!isRecording && isProcessed)
                 ? Column(
