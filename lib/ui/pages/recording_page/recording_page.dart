@@ -20,11 +20,20 @@ class RecordingPage extends ConsumerWidget {
         actions: [
           ref.watch(recordingProvider).isRecordingCompleted
               ? TextButton(
-                  onPressed: () {
-                    ref.read(recordingProvider.notifier).determinePosition;
+                  onPressed: () async {
+                    await ref.read(recordingProvider.notifier).determinePosition();
+                    final updatedDetail =
+                        ref.read(recordingProvider).detail ?? detail;
+                    if (updatedDetail == null) {
+                      return;
+                    }
+                    if (!context.mounted) {
+                      return;
+                    }
                     showDialog(
                       context: context,
-                      builder: (context) => ShareDetailDialog(detail: detail!),
+                      builder: (context) =>
+                          ShareDetailDialog(detail: updatedDetail),
                     );
                   },
                   child: const Icon(
