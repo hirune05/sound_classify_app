@@ -13,9 +13,11 @@ https://cocomakers-sound-classify-app.web.app
 ## Skills を用いた対話型セットアップと実行
 
 > [!TIP]
-> Codex を使用している場合は、'$sound-classify-ios-startup' コマンドで対話的にセットアップを実行できます。（iOSのみ対応）
->
-> Claude Code を使用している場合は、'/sound-classify-ios-startup' コマンドで対話的なセットアップを実行できます。（iOSのみ対応）
+> Codex または Claude Code を使用している場合は、以下コマンドで対話的にセットアップを実行できます。（iOSのみ対応）
+> 
+> Cocex: `$sound-classify-ios-startup`
+> 
+> Claude Code: `/sound-classify-ios-startup`
 
 ## ビルド方法
 
